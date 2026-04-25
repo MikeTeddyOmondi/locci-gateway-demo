@@ -1,0 +1,80 @@
+# ─── Locci Gateway Demo ───────────────────────────────────────────────────────
+# Stack:
+#   openauth  → auth server at http://localhost:3001  (issues ES256 JWTs)
+#   krakend   → API gateway at http://localhost:8080  (validates JWTs, proxies)
+#   users     → stub microservice at http://localhost:3002 (protected)
+#   products  → stub microservice at http://localhost:3003 (protected)
+#
+# Flow:
+#   1. GET  http://localhost:3001/authorize  → PKCE login
+#   2. POST http://localhost:3001/token      → exchange code → JWT
+#   3. GET  http://localhost:8080/users      → KrakenD validates JWT → proxies to users svc
+#   4. GET  http://localhost:8080/products   → same
+
+services:
+
+  # ── OpenAuth ────────────────────────────────────────────────────────────────
+  openauth:
+    build:
+      context: ./openauth
+      dockerfile: Dockerfile
+    container_name: locci-openauth
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: "3001"
+      # The public-facing issuer URL — must match what KrakenD uses to fetch JWKS
+      ISSUER: "http://localhost:3001"
+    networks:
+      - locci-net
+
+  # ── KrakenD API Gateway ─────────────────────────────────────────────────────
+  krakend:
+    image: devopsfaith/krakend:2.7
+    container_name: locci-krakend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./krakend/krakend.json:/etc/krakend/krakend.json:ro
+    depends_on:
+      - openauth
+      - users
+      - products
+    networks:
+      - locci-net
+
+  # ── Users microservice (stub) ───────────────────────────────────────────────
+  users:
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile
+    container_name: locci-users
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      PORT: "3002"
+      SERVICE_NAME: "users"
+    networks:
+      - locci-net
+
+  # ── Products microservice (stub) ────────────────────────────────────────────
+  products:
+    build:
+      context: ./services/products
+      dockerfile: Dockerfile
+    container_name: locci-products
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: "3003"
+      SERVICE_NAME: "products"
+    networks:
+      - locci-net
+
+networks:
+  locci-net:
+    driver: bridge

@@ -1,0 +1,230 @@
+{
+  "$schema": "https://www.krakend.io/schema/v2.7/krakend.json",
+  "version": 3,
+  "name": "Locci API Gateway — Demo",
+  "port": 8080,
+  "timeout": "10s",
+  "cache_ttl": "300s",
+
+  "extra_config": {
+    "telemetry/logging": {
+      "level": "DEBUG",
+      "prefix": "[KRAKEND]",
+      "syslog": false,
+      "stdout": true
+    },
+    "telemetry/metrics": {
+      "collection_time": "60s",
+      "proxy_disabled": false,
+      "router_disabled": false,
+      "backend_disabled": false,
+      "endpoint_disabled": false,
+      "listen_address": ":8090"
+    }
+  },
+
+  "endpoints": [
+    {
+      "__comment": "Public health check — no auth required",
+      "endpoint": "/health",
+      "method": "GET",
+      "input_headers": ["x-user-id", "x-user-email", "x-user-role"],
+      "backend": [
+        {
+          "url_pattern": "/health",
+          "host": ["http://users:3002"],
+          "method": "GET"
+        }
+      ]
+    },
+
+    {
+      "__comment": "GET /users — protected, requires valid JWT, forwards user claims as headers",
+      "endpoint": "/users",
+      "method": "GET",
+      "input_headers": ["x-user-id", "x-user-email", "x-user-role"],
+      "backend": [
+        {
+          "url_pattern": "/users",
+          "host": ["http://users:3002"],
+          "method": "GET",
+          "extra_config": {
+            "modifier/martian": {
+              "header.Modifier": {
+                "scope": ["request"],
+                "name": "X-Forwarded-By",
+                "value": "krakend"
+              }
+            }
+          }
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "ES256",
+          "jwk_url": "http://openauth:3001/.well-known/jwks.json",
+          "issuer": "http://localhost:3001",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            ["properties.id", "x-user-id"],
+            ["properties.email", "x-user-email"],
+            ["properties.role", "x-user-role"]
+          ]
+        }
+      }
+    },
+
+    {
+      "__comment": "GET /users/{id} — protected, path param forwarded",
+      "endpoint": "/users/{id}",
+      "method": "GET",
+      "input_headers": ["x-user-id", "x-user-email", "x-user-role"],
+      "backend": [
+        {
+          "url_pattern": "/users/{id}",
+          "host": ["http://users:3002"],
+          "method": "GET"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "ES256",
+          "jwk_url": "http://openauth:3001/.well-known/jwks.json",
+          "issuer": "http://localhost:3001",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            ["properties.id", "x-user-id"],
+            ["properties.email", "x-user-email"],
+            ["properties.role", "x-user-role"]
+          ]
+        }
+      }
+    },
+
+    {
+      "__comment": "GET /products — protected, role check happens in service",
+      "endpoint": "/products",
+      "method": "GET",
+      "input_headers": ["x-user-id", "x-user-email", "x-user-role"],
+      "backend": [
+        {
+          "url_pattern": "/products",
+          "host": ["http://products:3003"],
+          "method": "GET"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "ES256",
+          "jwk_url": "http://openauth:3001/.well-known/jwks.json",
+          "issuer": "http://localhost:3001",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            ["properties.id", "x-user-id"],
+            ["properties.email", "x-user-email"],
+            ["properties.role", "x-user-role"]
+          ]
+        }
+      }
+    },
+
+    {
+      "__comment": "POST /products — admin only (role enforced at service level via x-user-role header)",
+      "endpoint": "/products",
+      "method": "POST",
+      "input_headers": ["x-user-id", "x-user-email", "x-user-role"],
+      "backend": [
+        {
+          "url_pattern": "/products",
+          "host": ["http://products:3003"],
+          "method": "POST"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "ES256",
+          "jwk_url": "http://openauth:3001/.well-known/jwks.json",
+          "issuer": "http://localhost:3001",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            ["properties.id", "x-user-id"],
+            ["properties.email", "x-user-email"],
+            ["properties.role", "x-user-role"]
+          ]
+        }
+      }
+    },
+
+    {
+      "__comment": "GET /me — returns merged response from both services (KrakenD aggregation)",
+      "endpoint": "/me",
+      "method": "GET",
+      "input_headers": ["x-user-id", "x-user-email", "x-user-role"],
+      "backend": [
+        {
+          "url_pattern": "/users/me",
+          "host": ["http://users:3002"],
+          "method": "GET",
+          "group": "user"
+        },
+        {
+          "url_pattern": "/products/favourites",
+          "host": ["http://products:3003"],
+          "method": "GET",
+          "group": "favourites"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "ES256",
+          "jwk_url": "http://openauth:3001/.well-known/jwks.json",
+          "issuer": "http://localhost:3001",
+          "cache": true,
+          "cache_duration": 900,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            ["properties.id", "x-user-id"],
+            ["properties.email", "x-user-email"],
+            ["properties.role", "x-user-role"]
+          ]
+        }
+      }
+    },
+
+    {
+      "__comment": "GET /debug-headers — debug route to inspect headers, especially propagated user claims (not for production!)",
+      "endpoint": "/debug-headers",
+      "method": "GET",
+      "input_headers": ["x-user-id", "x-user-email", "x-user-role"],
+      "backend": [
+        {
+          "url_pattern": "/debug-headers",
+          "host": ["http://users:3002"],
+          "method": "GET"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "ES256",
+          "jwk_url": "http://openauth:3001/.well-known/jwks.json",
+          "issuer": "http://localhost:3001",
+          "cache": true,
+          "disable_jwk_security": true,
+          "propagate_claims": [
+            ["properties.id", "x-user-id"],
+            ["properties.email", "x-user-email"],
+            ["properties.role", "x-user-role"]
+          ]
+        }
+      }
+    }
+  ]
+}
