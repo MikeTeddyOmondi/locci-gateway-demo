@@ -66,7 +66,7 @@ if [ -z "$TOKEN" ]; then
   # Try the test token endpoint (only available in dev mode)
   RESPONSE=$(curl -sf -X POST "$AUTH/test/token" \
     -H "Content-Type: application/json" \
-    -d '{"email":"user@locci.dev","password":"user123","client_id":"locci-web"}' 2>/dev/null || echo "")
+    -d '{"email":"user@locci.cloud","password":"user123","client_id":"locci-web"}' 2>/dev/null || echo "")
 
   if [ -z "$RESPONSE" ]; then
     echo ""

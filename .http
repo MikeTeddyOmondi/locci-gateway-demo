@@ -1,0 +1,41 @@
+@AUTH = http://localhost:3001
+@GW   = http://localhost:8080
+@TOKEN = eyJhbGciOiJFUzI1NiIsImtpZCI6IjVhMGIxMjBmLTY4MGItNGIyYy1iNzhmLWEzMDVjMTNiM2ZjZiIsInR5cCI6IkpXVCJ9.eyJtb2RlIjoiYWNjZXNzIiwidHlwZSI6InVzZXIiLCJwcm9wZXJ0aWVzIjp7ImlkIjoidXNyX2FkbWluXzAwMSIsImVtYWlsIjoiYWRtaW5AbG9jY2kuY2xvdWQiLCJyb2xlIjoiYWRtaW4ifSwiYXVkIjoibG9jY2ktd2ViIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDozMDAxIiwic3ViIjoidXNlcjowMzI1OWRhNmZiMzE5MjIzIiwiZXhwIjoxNzgxMTA1NTU5fQ.G42_bAvTlv8GSy01YJ80ULjx6jmvLURImL3LZJnNgU_L2RmWNmZK1rb6jB88BUxOZtrf8IgHDCOrMoDALbId8w
+
+### ── Get token (dev-only test endpoint) ──────────────────────────────────────
+POST {{AUTH}}/token
+Content-Type: application/json
+
+{
+  "email": "admin@locci.cloud",
+  "password": "user123",
+  "client_id": "locci-web"
+}
+
+### ── Unauthenticated: GET /users → expect 401 ───────────────────────────────
+GET {{GW}}/users
+
+### ── Unauthenticated: GET /products → expect 401 ───────────────────────────
+GET {{GW}}/products
+
+### ── Authenticated: GET /users → expect 200 ────────────────────────────────
+GET {{GW}}/users
+Authorization: Bearer {{TOKEN}}
+
+### ── Authenticated: GET /products → expect 200 ─────────────────────────────
+GET {{GW}}/products
+Authorization: Bearer {{TOKEN}}
+
+### ── Role enforcement: POST /products as user → expect 403 ─────────────────
+POST {{GW}}/products
+Authorization: Bearer {{TOKEN}}
+Content-Type: application/json
+
+{
+  "name": "Product abc",
+  "price": 100.99
+}
+
+### ── Aggregation: GET /me → expect 200 with merged user + favourites ────────
+GET {{GW}}/me
+Authorization: Bearer {{TOKEN}}
